@@ -24,7 +24,7 @@ const (
 type (
 	// EventName is just a type of string, it's the event name
 	EventName string
-	// Listener is the type of a Listener, it's a func which receives any,optional, arguments from the caller/emmiter
+	// Listener is the type of a Listener, it's a func which receives any,optional, arguments from the caller/BaseEmitter
 	Listener func(...interface{})
 	// Events the type for registered listeners, it's just a map[string][]func(...interface{})
 	Events map[EventName][]Listener
@@ -41,7 +41,7 @@ type (
 		// EventNames returns an array listing the events for which the emitter has registered listeners.
 		// The values in the array will be strings.
 		EventNames() []EventName
-		// GetMaxListeners returns the max listeners for this emmiter
+		// GetMaxListeners returns the max listeners for this BaseEmitter
 		// see SetMaxListeners
 		GetMaxListeners() int
 		// ListenerCount returns the length of all registered listeners to a particular event
@@ -68,21 +68,21 @@ type (
 		// Len returns the length of all registered events
 		Len() int
 	}
-
-	emmiter struct {
-		maxListeners int
-		evtListeners Events
-		mu           sync.Mutex
-	}
 )
 
+type BaseEmitter struct {
+	maxListeners int
+	evtListeners Events
+	mu           sync.Mutex
+}
+
 // CopyTo copies the event listeners to an EventEmmiter
-func (e Events) CopyTo(emmiter EventEmmiter) {
+func (e Events) CopyTo(BaseEmitter EventEmmiter) {
 	if e != nil && len(e) > 0 {
 		// register the events to/with their listeners
 		for evt, listeners := range e {
 			if len(listeners) > 0 {
-				emmiter.AddListener(evt, listeners...)
+				BaseEmitter.AddListener(evt, listeners...)
 			}
 		}
 	}
@@ -90,11 +90,11 @@ func (e Events) CopyTo(emmiter EventEmmiter) {
 
 // New returns a new, empty, EventEmmiter
 func New() EventEmmiter {
-	return &emmiter{maxListeners: DefaultMaxListeners, evtListeners: Events{}}
+	return &BaseEmitter{maxListeners: DefaultMaxListeners, evtListeners: Events{}}
 }
 
 var (
-	_              EventEmmiter = &emmiter{}
+	_              EventEmmiter = &BaseEmitter{}
 	defaultEmmiter              = New()
 )
 
@@ -103,7 +103,7 @@ func AddListener(evt EventName, listener ...Listener) {
 	defaultEmmiter.AddListener(evt, listener...)
 }
 
-func (e *emmiter) AddListener(evt EventName, listener ...Listener) {
+func (e *BaseEmitter) AddListener(evt EventName, listener ...Listener) {
 	if len(listener) == 0 {
 		return
 	}
@@ -141,7 +141,7 @@ func Emit(evt EventName, data ...interface{}) {
 	defaultEmmiter.Emit(evt, data...)
 }
 
-func (e *emmiter) Emit(evt EventName, data ...interface{}) {
+func (e *BaseEmitter) Emit(evt EventName, data ...interface{}) {
 	if e.evtListeners == nil {
 		return // has no listeners to emit/speak yet
 	}
@@ -161,7 +161,7 @@ func EventNames() []EventName {
 	return defaultEmmiter.EventNames()
 }
 
-func (e *emmiter) EventNames() []EventName {
+func (e *BaseEmitter) EventNames() []EventName {
 	if e.evtListeners == nil || e.Len() == 0 {
 		return nil
 	}
@@ -175,13 +175,13 @@ func (e *emmiter) EventNames() []EventName {
 	return names
 }
 
-// GetMaxListeners returns the max listeners for this emmiter
+// GetMaxListeners returns the max listeners for this BaseEmitter
 // see SetMaxListeners
 func GetMaxListeners() int {
 	return defaultEmmiter.GetMaxListeners()
 }
 
-func (e *emmiter) GetMaxListeners() int {
+func (e *BaseEmitter) GetMaxListeners() int {
 	return e.maxListeners
 }
 
@@ -190,7 +190,7 @@ func ListenerCount(evt EventName) int {
 	return defaultEmmiter.ListenerCount(evt)
 }
 
-func (e *emmiter) ListenerCount(evt EventName) int {
+func (e *BaseEmitter) ListenerCount(evt EventName) int {
 	if e.evtListeners == nil {
 		return 0
 	}
@@ -213,7 +213,7 @@ func Listeners(evt EventName) []Listener {
 	return defaultEmmiter.Listeners(evt)
 }
 
-func (e *emmiter) Listeners(evt EventName) []Listener {
+func (e *BaseEmitter) Listeners(evt EventName) []Listener {
 	if e.evtListeners == nil {
 		return nil
 	}
@@ -241,7 +241,7 @@ func On(evt EventName, listener ...Listener) {
 	defaultEmmiter.On(evt, listener...)
 }
 
-func (e *emmiter) On(evt EventName, listener ...Listener) {
+func (e *BaseEmitter) On(evt EventName, listener ...Listener) {
 	e.AddListener(evt, listener...)
 }
 
@@ -251,7 +251,7 @@ func Once(evt EventName, listener ...Listener) {
 	defaultEmmiter.Once(evt, listener...)
 }
 
-func (e *emmiter) Once(evt EventName, listener ...Listener) {
+func (e *BaseEmitter) Once(evt EventName, listener ...Listener) {
 	if len(listener) == 0 {
 		return
 	}
@@ -303,7 +303,7 @@ func RemoveAllListeners(evt EventName) bool {
 	return defaultEmmiter.RemoveAllListeners(evt)
 }
 
-func (e *emmiter) RemoveAllListeners(evt EventName) bool {
+func (e *BaseEmitter) RemoveAllListeners(evt EventName) bool {
 	if e.evtListeners == nil {
 		return false // has nothing to remove
 	}
@@ -321,7 +321,7 @@ func (e *emmiter) RemoveAllListeners(evt EventName) bool {
 }
 
 // RemoveListener removes the specified listener from the listener array for the event named eventName.
-func (e *emmiter) RemoveListener(evt EventName, listener Listener) bool {
+func (e *BaseEmitter) RemoveListener(evt EventName, listener Listener) bool {
 	if e.evtListeners == nil {
 		return false
 	}
@@ -334,7 +334,6 @@ func (e *emmiter) RemoveListener(evt EventName, listener Listener) bool {
 	defer e.mu.Unlock()
 
 	listeners := e.evtListeners[evt];
-
 	if listeners == nil {
 		return false
 	}
@@ -351,7 +350,7 @@ func (e *emmiter) RemoveListener(evt EventName, listener Listener) bool {
 	}
 
 	if idx < 0 {
-		return  false
+		return false
 	}
 
 	var modifiedListeners []Listener = nil
@@ -370,7 +369,7 @@ func Clear() {
 	defaultEmmiter.Clear()
 }
 
-func (e *emmiter) Clear() {
+func (e *BaseEmitter) Clear() {
 	e.evtListeners = Events{}
 }
 
@@ -380,7 +379,7 @@ func SetMaxListeners(n int) {
 	defaultEmmiter.SetMaxListeners(n)
 }
 
-func (e *emmiter) SetMaxListeners(n int) {
+func (e *BaseEmitter) SetMaxListeners(n int) {
 	if n < 0 {
 		if EnableWarning {
 			log.Printf("(events) warning: MaxListeners must be positive number, tried to set: %d", n)
@@ -395,7 +394,7 @@ func Len() int {
 	return defaultEmmiter.Len()
 }
 
-func (e *emmiter) Len() int {
+func (e *BaseEmitter) Len() int {
 	if e.evtListeners == nil {
 		return 0
 	}
